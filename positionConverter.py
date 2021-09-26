@@ -21,7 +21,7 @@ while True:
 
     print("[", end="")
     for row in newTable:
-        print(row)
+        print(str(row) + ",")
     print("]")
     print("")
             

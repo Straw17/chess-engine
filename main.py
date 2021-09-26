@@ -1,72 +1,197 @@
 import chess
 
-#Simplified Evaluation Function
-pieceVals = {"P": 100,
-             "N": 320,
-             "B": 330,
-             "R": 500,
-             "Q": 900,
-             "K": 20000}
-pawnSquares = [[0, 0, 0, 0, 0, 0, 0, 0],
-               [50, 50, 50, 50, 50, 50, 50, 50],
-               [10, 10, 20, 30, 30, 20, 10, 10],
-               [5, 5, 10, 25, 25, 10, 5, 5],
-               [0, 0, 0, 20, 20, 0, 0, 0],
-               [5, -5, -10, 0, 0, -10, -5, 5],
-               [5, 10, 10, -20, -20, 10, 10, 5],
-               [0, 0, 0, 0, 0, 0, 0, 0]]
-knightSquares = [[-50, -40, -30, -30, -30, -30, -40, -50],
-                 [-40, -20, 0, 0, 0, 0, -20, -40],
-                 [-30, 0, 10, 15, 15, 10, 0, -30],
-                 [-30, 5, 15, 20, 20, 15, 5, -30],
-                 [-30, 0, 15, 20, 20, 15, 0, -30],
-                 [-30, 5, 10, 15, 15, 10, 5, -30],
-                 [-40, -20, 0, 5, 5, 0, -20, -40],
-                 [-50, -40, -30, -30, -30, -30, -40, -50]]
-bishopSquares = [[-20, -10, -10, -10, -10, -10, -10, -20],
-                 [-10, 0, 0, 0, 0, 0, 0, -10],
-                 [-10, 0, 5, 10, 10, 5, 0, -10],
-                 [-10, 5, 5, 10, 10, 5, 5, -10],
-                 [-10, 0, 10, 10, 10, 10, 0, -10],
-                 [-10, 10, 10, 10, 10, 10, 10, -10],
-                 [-10, 5, 0, 0, 0, 0, 5, -10],
-                 [-20, -10, -10, -10, -10, -10, -10, -20]]
-rookSquares = [[0, 0, 0, 0, 0, 0, 0, 0],
-               [5, 10, 10, 10, 10, 10, 10, 5],
-               [-5, 0, 0, 0, 0, 0, 0, -5],
-               [-5, 0, 0, 0, 0, 0, 0, -5],
-               [-5, 0, 0, 0, 0, 0, 0, -5],
-               [-5, 0, 0, 0, 0, 0, 0, -5],
-               [-5, 0, 0, 0, 0, 0, 0, -5],
-               [0, 0, 0, 5, 5, 0, 0, 0]]
-queenSquares = [[-20, -10, -10, -5, -5, -10, -10, -20],
-                [-10, 0, 0, 0, 0, 0, 0, -10],
-                [-10, 0, 5, 5, 5, 5, 0, -10],
-                [-5, 0, 5, 5, 5, 5, 0, -5],
-                [0, 0, 5, 5, 5, 5, 0, -5],
-                [-10, 5, 5, 5, 5, 5, 0, -10],
-                [-10, 0, 5, 0, 0, 0, 0, -10],
-                [-20, -10, -10, -5, -5, -10, -10, -20]]
-kingSquares = [[-30, -40, -40, -50, -50, -40, -40, -30],
-               [-30, -40, -40, -50, -50, -40, -40, -30],
-               [-30, -40, -40, -50, -50, -40, -40, -30],
-               [-30, -40, -40, -50, -50, -40, -40, -30],
-               [-20, -30, -30, -40, -40, -30, -30, -20],
-               [-10, -20, -20, -20, -20, -20, -20, -10],
-               [20, 20, 0, 0, 0, 0, 20, 20],
-               [20, 30, 10, 0, 0, 10, 30, 20]]
-squareAccess = {"P": pawnSquares,
-                "N": knightSquares,
-                "B": bishopSquares,
-                "R": rookSquares,
-                "Q": queenSquares,
-                "K": kingSquares}
+#PeSTO's Evaluation Function
+pieceValsStart = {"P": 82,
+                  "N": 337,
+                  "B": 365,
+                  "R": 477,
+                  "Q": 1025,
+                  "K": 0}
+pieceValsEnd = {"P": 94,
+                "N": 281,
+                "B": 297,
+                "R": 512,
+                "Q": 936,
+                "K": 0}
 
-def evalBoard(board):
+pawnStart = [[0, 0, 0, 0, 0, 0, 0, 0],
+             [98, 134, 61, 95, 68, 126, 34, -11],
+             [-6, 7, 26, 31, 65, 56, 25, -20],
+             [-14, 13, 6, 21, 23, 12, 17, -23],
+             [-27, -2, -5, 12, 17, 6, 10, -25],
+             [-26, -4, -4, -10, 3, 3, 33, -12],
+             [-35, -1, -20, -23, -15, 24, 38, -22],
+             [0, 0, 0, 0, 0, 0, 0, 0]]
+pawnEnd = [[0, 0, 0, 0, 0, 0, 0, 0],
+           [178, 173, 158, 134, 147, 132, 165, 187],
+           [94, 100, 85, 67, 56, 53, 82, 84],
+           [32, 24, 13, 5, -2, 4, 17, 17],
+           [13, 9, -3, -7, -7, -8, 3, -1],
+           [4, 7, -6, 1, 0, -5, -1, -8],
+           [13, 8, 8, 10, 13, 0, 2, -7],
+           [0, 0, 0, 0, 0, 0, 0, 0]]
+pawnMate = [[0]*8,
+            [600]*8,
+            [500]*8,
+            [400]*8,
+            [300]*8,
+            [200]*8,
+            [100]*8,
+            [0]*8]
+
+knightStart = [[-167, -89, -34, -49, 61, -97, -15, -107],
+               [-73, -41, 72, 36, 23, 62, 7, -17],
+               [-47, 60, 37, 65, 84, 129, 73, 44],
+               [-9, 17, 19, 53, 37, 69, 18, 22],
+               [-13, 4, 16, 13, 28, 19, 21, -8],
+               [-23, -9, 12, 10, 19, 17, 25, -16],
+               [-29, -53, -12, -3, -1, 18, -14, -19],
+               [-105, -21, -58, -33, -17, -28, -19, -23]]
+knightEnd = [[-58, -38, -13, -28, -31, -27, -63, -99],
+             [-25, -8, -25, -2, -9, -25, -24, -52],
+             [-24, -20, 10, 9, -1, -9, -19, -41],
+             [-17, 3, 22, 22, 22, 11, 8, -18],
+             [-18, -6, 16, 25, 16, 17, 4, -18],
+             [-23, -3, -1, 15, 10, -3, -20, -22],
+             [-42, -20, -10, -5, -2, -20, -23, -44],
+             [-29, -51, -23, -15, -22, -18, -50, -64]]
+
+bishopStart = [[-29, 4, -82, -37, -25, -42, 7, -8],
+               [-26, 16, -18, -13, 30, 59, 18, -47],
+               [-16, 37, 43, 40, 35, 50, 37, -2],
+               [-4, 5, 19, 50, 37, 37, 7, -2],
+               [-6, 13, 13, 26, 34, 12, 10, 4],
+               [0, 15, 15, 15, 14, 27, 18, 10],
+               [4, 15, 16, 0, 7, 21, 33, 1],
+               [-33, -3, -14, -21, -13, -12, -39, -21]]
+bishopEnd = [[-14, -21, -11, -8, -7, -9, -17, -24],
+             [-8, -4, 7, -12, -3, -13, -4, -14],
+             [2, -8, 0, -1, -2, 6, 0, 4],
+             [-3, 9, 12, 9, 14, 10, 3, 2],
+             [-6, 3, 13, 19, 7, 10, -3, -9],
+             [-12, -3, 8, 10, 13, 3, -7, -15],
+             [-14, -18, -7, -1, 4, -9, -15, -27],
+             [-23, -9, -23, -5, -9, -16, -5, -17]]
+
+rookStart = [[13, 10, 18, 15, 12, 12, 8, 5],
+             [11, 13, 13, 11, -3, 3, 8, 3],
+             [7, 7, 7, 5, 4, -3, -5, -3],
+             [4, 3, 13, 1, 2, 1, -1, 2],
+             [3, 5, 8, 4, -5, -6, -8, -11],
+             [-4, 0, -5, -1, -7, -12, -8, -16],
+             [-6, -6, 0, 2, -9, -9, -11, -3],
+             [-9, 2, 3, -1, -5, -13, 4, -20]]
+rookEnd = [[13, 10, 18, 15, 12, 12, 8, 5],
+           [11, 13, 13, 11, -3, 3, 8, 3],
+           [7, 7, 7, 5, 4, -3, -5, -3],
+           [4, 3, 13, 1, 2, 1, -1, 2],
+           [3, 5, 8, 4, -5, -6, -8, -11],
+           [-4, 0, -5, -1, -7, -12, -8, -16],
+           [-6, -6, 0, 2, -9, -9, -11, -3],
+           [-9, 2, 3, -1, -5, -13, 4, -20]]
+
+queenStart = [[-28, 0, 29, 12, 59, 44, 43, 45],
+              [-24, -39, -5, 1, -16, 57, 28, 54],
+              [-13, -17, 7, 8, 29, 56, 47, 57],
+              [-27, -27, -16, -16, -1, 17, -2, 1],
+              [-9, -26, -9, -10, -2, -4, 3, -3],
+              [-14, 2, -11, -2, -5, 2, 14, 5],
+              [-35, -8, 11, 2, 8, 15, -3, 1],
+              [-1, -18, -9, 10, -15, -25, -31, -50]]
+queenEnd = [[-9, 22, 22, 27, 27, 19, 10, 20],
+            [-17, 20, 32, 41, 58, 25, 30, 0],
+            [-20, 6, 9, 49, 47, 35, 19, 9],
+            [3, 22, 24, 45, 57, 40, 57, 36],
+            [-18, 28, 19, 47, 31, 34, 39, 23],
+            [-16, -27, 15, 6, 9, 17, 10, 5],
+            [-22, -23, -30, -16, -16, -23, -36, -32],
+            [-33, -28, -22, -43, -5, -32, -20, -41]]
+
+
+kingStart = [[-65, 23, 16, -15, -56, -34, 2, 13],
+             [29, -1, -20, -7, -8, -4, -38, -29],
+             [-9, 24, 2, -16, -20, 6, 22, -22],
+             [-17, -20, -12, -27, -30, -25, -14, -36],
+             [-49, -1, -27, -39, -46, -44, -33, -51],
+             [-14, -14, -22, -46, -44, -30, -15, -27],
+             [1, 7, -8, -64, -43, -16, 9, 8],
+             [-15, 36, 12, -54, 8, -28, 24, 14]]
+kingEnd = [[-74, -35, -18, -18, -11, 15, 4, -17],
+           [-12, 17, 14, 17, 17, 38, 23, 11],
+           [10, 17, 23, 15, 20, 45, 44, 13],
+           [-8, 22, 24, 27, 26, 33, 26, 3],
+           [-18, -4, 21, 24, 27, 23, 9, -11],
+           [-19, -3, 11, 21, 23, 16, 7, -9],
+           [-27, -11, 4, 13, 14, 4, -5, -17],
+           [-53, -34, -21, -11, -28, -14, -24, -43]]
+
+squareStarts = {"P": pawnStart,
+                "N": knightStart,
+                "B": bishopStart,
+                "R": rookStart,
+                "Q": queenStart,
+                "K": kingStart}
+squareEnds = {"P": pawnEnd,
+              "N": knightEnd,
+              "B": bishopEnd,
+              "R": rookEnd,
+              "Q": queenEnd,
+              "K": kingEnd}
+
+def inEndPhase(board):
+    board = str(board)
+    board = board.replace("\n", " ")
+    board = board.split(" ")
+
+    whitePieces = 0
+    blackPieces = 0
+    for a in range(8):
+        for b in range(8):
+            piece = board[a*8 + b]
+            if piece.upper() == "P":
+                continue
+            if piece.isupper():
+                whitePieces += 1
+            else:
+                blackPieces += 1
+    return (whitePieces < 5) or (blackPieces < 5)
+
+def inMatePhase(board):
+    board = str(board)
+    board = board.replace("\n", " ")
+    board = board.split(" ")
+
+    whitePieces = 0
+    blackPieces = 0
+    for a in range(8):
+        for b in range(8):
+            piece = board[a*8 + b]
+            if piece.upper() == "P":
+                continue
+            if piece.isupper():
+                whitePieces += 1
+            else:
+                blackPieces += 1
+    return (whitePieces < 3) or (blackPieces < 3)
+
+def evalBoard(board, isWhite, isEnd, isMate, isWinning):
     if board.is_check():
-        checkBonus = 50
+        if isMate or isEnd:
+            checkBonus = 90
+        else:
+            checkBonus = 50
     else:
         checkBonus = 0
+
+    outcome = board.outcome()
+    if outcome != None:
+        if outcome.termination == chess.Termination.CHECKMATE:
+            checkBonus = 10000
+        else:
+            if isWinning:
+                checkBonus = -10000
+            else:
+                checkBonus = 10000
     
     board = str(board)
     board = board.replace("\n", " ")
@@ -84,7 +209,19 @@ def evalBoard(board):
                 swap = -1
                 aNew = 7-a
                 piece = piece.upper()
-            whiteVal += swap * (pieceVals[piece] + squareAccess[piece][aNew][b] + checkBonus)
+            if isMate:
+                if piece == "P":
+                    whiteVal += swap * (pieceValsEnd[piece] + pawnMate[aNew][b])
+                else:
+                    whiteVal += swap * (pieceValsEnd[piece])
+            elif isEnd:
+                whiteVal += swap * (pieceValsStart[piece] + squareStarts[piece][aNew][b])
+            else:
+                whiteVal += swap * (pieceValsEnd[piece] + squareEnds[piece][aNew][b])
+    if isWhite:
+        whiteVal += checkBonus
+    else:
+        whiteVal -= checkBonus
     return whiteVal
 
 def getNextMove(board, isWhite):
@@ -94,10 +231,14 @@ def getNextMove(board, isWhite):
         swap = 1
     else:
         swap = -1
+    boardNow = swap * evalBoard(board, isWhite, inEndPhase(board), inMatePhase(board), False)
+    print(boardNow)
     for move in moves:
         board.push_san(move.uci())
-        moveVals.append(swap * evalBoard(board))
+        moveVals.append(swap * evalBoard(board, isWhite, inEndPhase(board), inMatePhase(board), boardNow > 0))
         board.pop()
+    print([board.san(move) for move in moves])
+    print(moveVals)
     return moves[max(range(len(moveVals)), key=moveVals.__getitem__)].uci()
 
 def getAIMove(board, AIWhite):
@@ -144,8 +285,10 @@ def evalPiece(uci):
     else:
         return first
 
-def runAIGame():
+def runAIGame(opening):
     board = chess.Board()
+    for move in opening:
+        board.push_san(move)
     players = {"White": getAIMove,
                "Black": getAIMove}
     while True:
@@ -160,6 +303,15 @@ def runAIGame():
         board = players["Black"](board, False)
         if isOver(board):
             break
+    return board.outcome().termination
+
+def runAllGames():
+    whiteOpenings = ['Nh3', 'Nf3', 'Nc3', 'Na3', 'h3', 'g3', 'f3', 'e3', 'd3', 'c3', 'b3', 'a3', 'h4', 'g4', 'f4', 'e4', 'd4', 'c4', 'b4', 'a4']
+    blackOpenings = ['Nh6', 'Nf6', 'Nc6', 'Na6', 'h6', 'g6', 'f6', 'e6', 'd6', 'c6', 'b6', 'a6', 'h5', 'g5', 'f5', 'e5', 'd5', 'c5', 'b5', 'a5']
+    for openW in whiteOpenings:
+        for openB in blackOpenings:
+            result = runAIGame([openW, openB])
+            print(result)
 
 def runGame(AIWhite):
     board = chess.Board()
@@ -178,3 +330,5 @@ def runGame(AIWhite):
             break
 
 runGame(False)
+#runAIGame([])
+#runAllGames()
