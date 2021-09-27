@@ -1,4 +1,7 @@
+#ideas: async, improve eval speed
 import chess
+import time
+import sys
 
 #PeSTO's Evaluation Function
 pieceValsStart = {"P": 82,
@@ -189,9 +192,9 @@ def evalBoard(board, isWhite, isEnd, isMate, isWinning):
             checkBonus = 10000
         else:
             if isWinning:
-                checkBonus = -10000
+                checkBonus = -5000
             else:
-                checkBonus = 10000
+                checkBonus = 5000
     
     board = str(board)
     board = board.replace("\n", " ")
@@ -224,30 +227,102 @@ def evalBoard(board, isWhite, isEnd, isMate, isWinning):
         whiteVal -= checkBonus
     return whiteVal
 
-def getNextMove(board, isWhite):
+def orderMoveList(moveList):
+    mate = []
+    take = []
+    check = []
+    normal = []
+    for move in moveList:
+        if "#" in move:
+            mate.append(move)
+        elif "x" in move:
+            take.append(move)
+        elif "+" in move:
+            check.append(move)
+        else:
+            normal.append(move)
+    return mate + take + check + normal
+
+def alphaBeta(depth, alpha, beta, board, isWhite, isEnd, isMate, isWinning):
+    if depth == 0 or board.outcome() != None:
+        if isWhite:
+            swap = -1
+        else:
+            swap = 1
+        return swap * evalBoard(board, isWhite, isEnd, isMate, isWinning)
     moves = list(board.legal_moves)
-    moveVals = []
+    if depth > 2:
+        if isWhite:
+            swap = -1
+        else:
+            swap = 1
+        moveVals = []
+        for move in moves:
+            board.push_san(move.uci())
+            moveVals.append(swap * evalBoard(board, isWhite, isEnd, isMate, isWinning))
+            board.pop()
+        moves = [x for _, x in sorted(zip(moveVals, moves), key=lambda pair: pair[0])]
+        moves.reverse()
+    for move in moves:
+        board.push_san(move.uci())
+        moveScore = -alphaBeta(depth-1, -beta, -alpha, board, not isWhite, isEnd, isMate, not isWinning)
+        board.pop()
+        if moveScore >= beta:
+            return moveScore
+        if moveScore > alpha:
+            alpha = moveScore
+    return alpha
+
+def getNextMove(board, isWhite):
+    end = inEndPhase(board)
+    mate = inMatePhase(board)
+
     if isWhite:
         swap = 1
     else:
         swap = -1
-    boardNow = swap * evalBoard(board, isWhite, inEndPhase(board), inMatePhase(board), False)
+    boardNow = swap * evalBoard(board, isWhite, end, mate, False)
+    
+    moves = list(board.legal_moves)
+    moveVals = []
+    for move in moves:
+        board.push_san(move.uci())
+        moveVals.append(swap * evalBoard(board, isWhite, end, mate, boardNow > 0))
+        board.pop()
+    moves = [x for _, x in sorted(zip(moveVals, moves), key=lambda pair: pair[0])]
+    moves.reverse()
+    moveVals = []
     print(boardNow)
     for move in moves:
         board.push_san(move.uci())
-        moveVals.append(swap * evalBoard(board, isWhite, inEndPhase(board), inMatePhase(board), boardNow > 0))
+        if len(moves) <= 15:
+            moveVals.append(-alphaBeta(4, -10000, 10000, board, isWhite, end, mate, boardNow > 0))
+        else:
+            moveVals.append(-alphaBeta(3, -10000, 10000, board, isWhite, end, mate, boardNow > 0))
         board.pop()
     print([board.san(move) for move in moves])
     print(moveVals)
     return moves[max(range(len(moveVals)), key=moveVals.__getitem__)].uci()
 
+total = 0
+ply = 0
+
 def getAIMove(board, AIWhite):
+    global total, ply
+    startTime = time.time()
     board.push_san(getNextMove(board, AIWhite))
+    endTime = time.time()
+    diff = endTime-startTime
+    print("Time: " + str(diff))
+    total += diff
+    ply += 1
+    print("Running average: " + str(total/ply))
     return board
 
 def getPlayerMove(board, AIWhite):
     print()
-    print(board.unicode())
+    #print(board.unicode())
+    print(board)
     moves = [board.san(move) for move in list(board.legal_moves)]
     print("Moves: ", end="")
     lastPiece = ""
@@ -261,9 +336,12 @@ def getPlayerMove(board, AIWhite):
     
     while True:
         try:
-            board.push_san(input("Enter move: "))
+            move = input("Enter move: ")
+            if move == "quit":
+                sys.exit(1)
+            board.push_san(move)
             break
-        except:
+        except Exception:
             continue
     return board
 
@@ -273,7 +351,8 @@ def isOver(board):
         return False
     else:
         print()
-        print(board.unicode())
+        #print(board.unicode())
+        print(board)
         print("Game over!")
         print(str(outcome.termination).split(".")[1])
         return True
@@ -293,16 +372,17 @@ def runAIGame(opening):
                "Black": getAIMove}
     while True:
         print()
-        print(board.unicode())
+        print(board)
         board = players["White"](board, True)
         if isOver(board):
             break
         
         print()
-        print(board.unicode())
+        print(board)
         board = players["Black"](board, False)
         if isOver(board):
             break
+    print(total/ply)
     return board.outcome().termination
 
 def runAllGames():
