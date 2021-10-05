@@ -15,13 +15,17 @@ while True:
         newRow = []
         for b in range(8):
             newItem = toReformat[a*8 + b]
-            newItem = newItem.strip()
             newRow.append(int(newItem))
-        newTable.append(newRow)
+        newTable += newRow
 
-    print("[", end="")
-    for row in newTable:
-        print(str(row) + ",")
+    print("[")
+    for a in range(8):
+        for b in range(8):
+            itemStr = str(newTable[a*8+b])
+            for i in range(4-len(itemStr)):
+                itemStr = " " + itemStr
+            print(itemStr, end=",")
+        print("")
     print("]")
     print("")
             
