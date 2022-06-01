@@ -1,7 +1,59 @@
-#ideas: async, improve eval speed, passed pawns
+#ideas: improve eval speed, passed pawns, null move pruning
+
 import chess
 import time
 import sys
+import random
+
+pieceIDs = {"P": 0,
+            "N": 1,
+            "B": 2,
+            "R": 3,
+            "Q": 4,
+            "K": 5}
+
+def initZobrist(seed, bits):
+    random.seed(seed)
+    zobrist = [[[0]*64 for i in range(12)], [0, 0]]
+    for piece in range(12):
+        for square in range(64):
+            zobrist[0][piece][square] = random.getrandbits(bits)
+    for turn in range(2):
+        zobrist[1][turn] = random.getrandbits(bits)
+    return zobrist
+
+zobrist = initZobrist(82737838281137781, 64)
+
+def getZobHash(board):
+    currentZob = 0
+    for a in range(8):
+        for b in range(8):
+            piece = board.piece_at(a*8 + b)
+            if piece is None:
+                continue
+            piece = piece.symbol()
+            if piece.isupper():
+                toAdd = 0
+            else:
+                toAdd = 6
+            zobNext = zobrist[0][pieceIDs[piece.upper()] + toAdd][a*8 + b]
+            currentZob = currentZob ^ zobNext
+    if board.turn:
+        currentZob = currentZob ^ zobrist[1][0]
+    else:
+        currentZob = currentZob ^ zobrist[1][1]
+    return currentZob
+
+#each hash has the following entries: [depth, score, toCut]
+zobHashes = {}
+
+def pruneZobHashes(zobHashes):
+    for key in list(zobHashes.keys()):
+        if zobHashes[key][2]:
+            del zobHashes[key]
+        else:
+            zobHashes[key][2] = False
+    return zobHashes
 
 #PeSTO's Evaluation Function
 pieceValsStart = {"P": 82,
@@ -37,16 +89,16 @@ pawnEnd = [
   13,   8,   8,  10,  13,   0,   2,  -7,
    0,   0,   0,   0,   0,   0,   0,   0
 ]
-pawnMate = [
-   0,   0,   0,   0,   0,   0,   0,   0,
- 600, 600, 600, 600, 600, 600, 600, 600,
- 500, 500, 500, 500, 500, 500, 500, 500,
- 400, 400, 400, 400, 400, 400, 400, 400,
- 300, 300, 300, 300, 300, 300, 300, 300,
- 200, 200, 200, 200, 200, 200, 200, 200,
- 100, 100, 100, 100, 100, 100, 100, 100,
-   0,   0,   0,   0,   0,   0,   0,   0
-]
+##pawnMate = [
+##   0,   0,   0,   0,   0,   0,   0,   0,
+## 600, 600, 600, 600, 600, 600, 600, 600,
+## 500, 500, 500, 500, 500, 500, 500, 500,
+## 400, 400, 400, 400, 400, 400, 400, 400,
+## 300, 300, 300, 300, 300, 300, 300, 300,
+## 200, 200, 200, 200, 200, 200, 200, 200,
+## 100, 100, 100, 100, 100, 100, 100, 100,
+##   0,   0,   0,   0,   0,   0,   0,   0
+##]
 
 knightStart = [
 -167, -89, -34, -49,  61, -97, -15,-107,
@@ -198,7 +250,7 @@ def inMatePhase(board):
     return (whitePieces < 3) or (blackPieces < 3)
 
 evals = 0
-def evalBoard(board, isWhite, isEnd, isMate, isWinning):
+def evalBoard(board, isWhite, isEnd, isMate, isWinning, depth):
     global evals
     evals += 1
     
@@ -210,9 +262,9 @@ def evalBoard(board, isWhite, isEnd, isMate, isWinning):
     outcome = board.outcome()
     if outcome != None:
         if outcome.termination == chess.Termination.CHECKMATE:
-            checkBonus = 7500
+            checkBonus = 10000 + 1000*depth
         else:
-            if isWinning:
+            if isWinning or not isMate:
                 checkBonus = -5000
             else:
                 checkBonus = 5000
@@ -233,7 +285,7 @@ def evalBoard(board, isWhite, isEnd, isMate, isWinning):
                 piece = piece.upper()
             if isMate:
                 if piece == "P":
-                    whiteVal += swap * (pieceValsEnd[piece] + pawnMate[aNew*8 + b])
+                    whiteVal += swap * (pieceValsEnd[piece] + pawnEnd[aNew*8 + b])
                 else:
                     whiteVal += swap * (pieceValsEnd[piece])
             elif isEnd:
@@ -247,39 +299,67 @@ def evalBoard(board, isWhite, isEnd, isMate, isWinning):
         whiteVal -= checkBonus
     return whiteVal
 
-def alphaBeta(depth, alpha, beta, board, isWhite, isEnd, isMate, isWinning, moveUCI):
+def alphaBeta(depth, alpha, beta, board, isWhite, isEnd, isMate, isWinning, oldMoveUCI):
     if isWhite:
         swap = -1
     else:
         swap = 1
+
+    hashVal = getZobHash(board)
+    global zobHashes
+    if (hashVal in zobHashes) and (zobHashes[hashVal][0] >= depth):
+        if not zobHashes[hashVal][2]:
+            zobHashes[hashVal][2] = True
+        if zobHashes[hashVal][1] < beta:
+            if zobHashes[hashVal][1] > alpha:
+                return zobHashes[hashVal][1]
+            else:
+                return alpha
     
     if depth == 0:
-        if board.is_check() or ("x" in moveUCI):
+        if board.is_check() or ("x" in oldMoveUCI):
             depth = 1
         else:
-            return swap * evalBoard(board, isWhite, isEnd, isMate, isWinning)
+            toReturn = swap * evalBoard(board, isWhite, isEnd, isMate, isWinning, depth)
+            zobHashes[hashVal] = [depth, toReturn, False]
+            return toReturn
     if board.outcome() != None:
-        return swap * evalBoard(board, isWhite, isEnd, isMate, isWinning)
+        toReturn = swap * evalBoard(board, isWhite, isEnd, isMate, isWinning, depth)
+        zobHashes[hashVal] = [depth, toReturn, False]
+        return toReturn
 
     moves = list(board.legal_moves)
     if depth > 1:
         moveVals = []
         for move in moves:
             board.push_san(move.uci())
-            moveVals.append(swap * evalBoard(board, isWhite, isEnd, isMate, isWinning))
+            moveVals.append(swap * evalBoard(board, isWhite, isEnd, isMate, isWinning, depth))
             board.pop()
         moves = [x for _, x in sorted(zip(moveVals, moves), key=lambda pair: pair[0])]
         moves.reverse()
 
+    moveCount = 0
+    exact = False
     for move in moves:
         moveUCI = move.uci()
         board.push_san(moveUCI)
+        if (moveCount > 3) and (depth > 2) and ("x" not in moveUCI) and (not board.is_check()):
+            moveScore = -alphaBeta(depth-2, -beta, -alpha, board, not isWhite, isEnd, isMate, not isWinning, moveUCI)
+            if moveScore <= alpha:
+                board.pop()
+                continue
         moveScore = -alphaBeta(depth-1, -beta, -alpha, board, not isWhite, isEnd, isMate, not isWinning, moveUCI)
         board.pop()
         if moveScore >= beta:
             return moveScore
         if moveScore > alpha:
             alpha = moveScore
+            exact = True
+        moveCount += 1
+
+    if exact and depth > 0:
+        zobHashes[hashVal] = [depth, alpha, False]
+    
     return alpha
 
 def getNextMove(board, isWhite):
@@ -290,37 +370,54 @@ def getNextMove(board, isWhite):
         swap = 1
     else:
         swap = -1
-    boardNow = swap * evalBoard(board, isWhite, end, mate, False)
+    boardNow = swap * evalBoard(board, isWhite, end, mate, False, 0)
     #print("Board: " + str(boardNow))
     
     moves = list(board.legal_moves)
     moveVals = []
-    alpha = -20000
-    beta = 20000
+    alpha = -30000
+    beta = 30000
     for move in moves:
         moveUCI = move.uci()
         board.push_san(moveUCI)
-        returnedVal = -alphaBeta(1, -beta, -alpha, board, isWhite, end, mate, boardNow > 0, moveUCI)
-##        if -returnedVal < boardNow:
-##            board.pop()
-##            continue
+        returnedVal = -alphaBeta(2, -beta, -alpha, board, isWhite, end, mate, boardNow > 0, moveUCI)
         moveVals.append(returnedVal)
         board.pop()
     #print([board.san(move) for move in moves])
     #print(moveVals)
     moves = [x for _, x in sorted(zip(moveVals, moves), key=lambda pair: pair[0])]
     moves.reverse()
+
+    depth = 4
     moveVals = []
     for move in moves:
         moveUCI = move.uci()
         board.push_san(moveUCI)
-        returnedVal = -alphaBeta(4, -beta, -alpha, board, isWhite, end, mate, boardNow > 0, moveUCI)
+        returnedVal = -alphaBeta(depth, -beta, -alpha, board, isWhite, end, mate, boardNow > 0, moveUCI)
         if returnedVal > alpha:
             alpha = returnedVal
         moveVals.append(returnedVal)
         board.pop()
+    while evals < 20000:
+        depth += 1
+        moves = [x for _, x in sorted(zip(moveVals, moves), key=lambda pair: pair[0])]
+        moveVals = []
+
+        alpha = -30000
+        beta = 30000
+        for move in moves:
+            moveUCI = move.uci()
+            board.push_san(moveUCI)
+            returnedVal = -alphaBeta(depth, -beta, -alpha, board, isWhite, end, mate, boardNow > 0, moveUCI)
+            if returnedVal > alpha:
+                alpha = returnedVal
+            moveVals.append(returnedVal)
+            board.pop()
+    global zobHashes
+    zobHashes = pruneZobHashes(zobHashes)
     print([board.san(move) for move in moves])
     print(moveVals)
+    print("Depth: " + str(depth))
     return moves[max(range(len(moveVals)), key=moveVals.__getitem__)].uci()
 
 total = 0
@@ -332,8 +429,8 @@ def getAIMove(board, AIWhite):
     board.push_san(getNextMove(board, AIWhite))
     endTime = time.time()
     diff = endTime-startTime
-    print("Time: " + str(diff))
     print("Evals: " + str(evals))
+    print("Time: " + str(diff))
     total += diff
     ply += 1
     print("Running average: " + str(total/ply))
